@@ -1,220 +1,252 @@
 
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Схема камер</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Camera Editor - Interactive Handles</title>
   <style>
-    body { margin: 0; font-family: sans-serif; }
-    #toolbar { padding: 10px; background: #eee; display: flex; flex-wrap: wrap; gap: 10px; }
-    #canvasContainer { position: relative; margin: 0 auto; background: #ccc; }
-    canvas { position: absolute; top: 0; left: 0; }
-    .icon-button { padding: 5px 10px; cursor: pointer; }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    #canvas {
+      background: #eee;
+      cursor: default;
+    }
+    #toolbar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      border: 1px solid #ccc;
+      z-index: 10;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
   </style>
 </head>
 <body>
   <div id="toolbar">
-    <input type="file" id="bgUpload" accept="image/*">
-    <button class="icon-button" onclick="selectIcon('fix')">FIX</button>
-    <button class="icon-button" onclick="selectIcon('ptz')">PTZ</button>
-    <button class="icon-button" onclick="selectIcon('pp')">ПП</button>
-    <button class="icon-button" onclick="selectIcon('shield')">Щит</button>
-    <button onclick="undo()">↩ Отменить</button>
-    <button onclick="saveImage()">💾 Сохранить</button>
+    <input type="file" accept="image/*" onchange="loadBackground(event)" />
+    <button onclick="addIcon('fix')">FIX</button>
+    <button onclick="addIcon('ptz')">PTZ</button>
+    <button onclick="addIcon('shield')">ЩИТ</button>
+    <button onclick="addIcon('pp')">ПП</button>
+    <button onclick="saveImage()">Сохранить как PNG</button>
   </div>
-  <div id="canvasContainer">
-    <canvas id="bgCanvas"></canvas>
-    <canvas id="drawCanvas"></canvas>
-  </div>
+  <canvas id="canvas" width="1200" height="800"></canvas>
   <script>
-    const bgCanvas = document.getElementById('bgCanvas');
-    const drawCanvas = document.getElementById('drawCanvas');
-    const bgCtx = bgCanvas.getContext('2d');
-    const drawCtx = drawCanvas.getContext('2d');
-    const container = document.getElementById('canvasContainer');
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
 
-    let icons = [];
-    let selectedIcon = null;
-    let scale = 1;
-    let image = null;
-    let draggingIcon = null;
-    let offsetX = 0, offsetY = 0;
+    const icons = [];
+    const iconImages = {};
+    const iconTypes = ["fix", "ptz", "shield", "pp"];
+    let backgroundImg = null;
 
-    const iconImages = {
-      fix: new Image(),
-      ptz: new Image(),
-      pp: new Image(),
-      shield: new Image()
-    };
-    iconImages.fix.src = 'fix.png';
-    iconImages.ptz.src = 'ptz.png';
-    iconImages.pp.src = 'pp.png';
-    iconImages.shield.src = 'shield.png';
+    let selected = null;
+    let dragging = false;
+    let dragMode = null;
+    let startX = 0, startY = 0;
 
-    function resizeCanvasToImage() {
-      if (!image) return;
-      bgCanvas.width = drawCanvas.width = image.width * scale;
-      bgCanvas.height = drawCanvas.height = image.height * scale;
-      container.style.width = bgCanvas.width + 'px';
-      container.style.height = bgCanvas.height + 'px';
-    }
+    iconTypes.forEach(type => {
+      const img = new Image();
+      img.src = type + ".png";
+      iconImages[type] = img;
+    });
 
-    document.getElementById('bgUpload').addEventListener('change', e => {
-      const file = e.target.files[0];
-      image = new Image();
-      image.onload = () => {
-        scale = 1;
-        resizeCanvasToImage();
-        redraw();
+    function loadBackground(event) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = e => {
+        backgroundImg = new Image();
+        backgroundImg.onload = draw;
+        backgroundImg.src = e.target.result;
       };
-      image.src = URL.createObjectURL(file);
-    });
-
-    drawCanvas.addEventListener('wheel', e => {
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 1.05 : 0.95;
-      scale *= delta;
-      resizeCanvasToImage();
-      redraw();
-    }, { passive: false });
-
-    function selectIcon(type) {
-      selectedIcon = type;
+      reader.readAsDataURL(file);
     }
 
-    drawCanvas.addEventListener('mousedown', e => {
-      const rect = drawCanvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / scale;
-      const y = (e.clientY - rect.top) / scale;
-
-      for (let i = icons.length - 1; i >= 0; i--) {
-        const icon = icons[i];
-        const dx = x - icon.x;
-        const dy = y - icon.y;
-        if (Math.sqrt(dx*dx + dy*dy) < 20) {
-          draggingIcon = icon;
-          offsetX = dx;
-          offsetY = dy;
-          return;
-        }
-      }
-
-      if (selectedIcon) {
-        icons.push({ type: selectedIcon, x, y, angle: 0 });
-        redraw();
-      }
-    });
-
-    drawCanvas.addEventListener('mousemove', e => {
-      if (draggingIcon) {
-        const rect = drawCanvas.getBoundingClientRect();
-        draggingIcon.x = (e.clientX - rect.left) / scale - offsetX;
-        draggingIcon.y = (e.clientY - rect.top) / scale - offsetY;
-        redraw();
-      }
-    });
-
-    drawCanvas.addEventListener('mouseup', () => {
-      draggingIcon = null;
-    });
-
-    function undo() {
-      icons.pop();
-      redraw();
-    }
-
-    function redraw() {
-      bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-      if (image) {
-        bgCtx.drawImage(image, 0, 0, bgCanvas.width, bgCanvas.height);
-      }
-      drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-      for (const icon of icons) {
-        const img = iconImages[icon.type];
-        if (img.complete) {
-          
-        drawCtx.save();
-        drawCtx.translate(icon.x * scale, icon.y * scale);
-        drawCtx.rotate((icon.angle || 0) * Math.PI / 180);
-        drawCtx.drawImage(img, -16, -16, 32, 32);
-        drawCtx.restore();
-    
-        }
-      }
+    function addIcon(type) {
+      icons.push({ type, x: 600, y: 400, size: 50, rotation: 0 });
+      draw();
     }
 
     function saveImage() {
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = bgCanvas.width;
-      tempCanvas.height = bgCanvas.height;
-      const ctx = tempCanvas.getContext('2d');
-      if (image) {
-        ctx.drawImage(image, 0, 0, tempCanvas.width, tempCanvas.height);
-      }
-      for (const icon of icons) {
-        const img = iconImages[icon.type];
-        if (img.complete) {
-          
-        ctx.save();
-        ctx.translate(icon.x * scale, icon.y * scale);
-        ctx.rotate((icon.angle || 0) * Math.PI / 180);
-        ctx.drawImage(img, -16, -16, 32, 32);
-        ctx.restore();
-    
-        }
-      }
-      const link = document.createElement('a');
-      link.download = 'schema.png';
-      link.href = tempCanvas.toDataURL('image/png');
+      const link = document.createElement("a");
+      link.download = "scheme.png";
+      link.href = canvas.toDataURL();
       link.click();
     }
-  </script>
-</body>
-</html>
 
-<script>
+    function drawHandles(icon) {
+      ctx.save();
+      ctx.translate(icon.x, icon.y);
+      ctx.rotate(icon.rotation);
 
-let rotatingIcon = null;
+      const s = icon.size / 2;
+      const corners = [[-s, -s], [s, -s], [s, s], [-s, s]];
+      ctx.fillStyle = "white";
+      ctx.strokeStyle = "black";
 
-drawCanvas.addEventListener('contextmenu', e => {
-  e.preventDefault();
-  const rect = drawCanvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left) / scale;
-  const y = (e.clientY - rect.top) / scale;
+      for (let [x, y] of corners) {
+        ctx.fillRect(x - 4, y - 4, 8, 8);
+        ctx.strokeRect(x - 4, y - 4, 8, 8);
+      }
 
-  for (let i = icons.length - 1; i >= 0; i--) {
-    const icon = icons[i];
-    const dx = x - icon.x;
-    const dy = y - icon.y;
-    if (Math.sqrt(dx*dx + dy*dy) < 20) {
-      rotatingIcon = icon;
-      return;
+      // Rotate handle
+      ctx.beginPath();
+      ctx.arc(0, s + 20, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "orange";
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.restore();
     }
-  }
-});
 
-drawCanvas.addEventListener('mousemove', e => {
-  if (rotatingIcon) {
-    const rect = drawCanvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / scale;
-    const y = (e.clientY - rect.top) / scale;
-    const dx = x - rotatingIcon.x;
-    const dy = y - rotatingIcon.y;
-    rotatingIcon.angle = Math.atan2(dy, dx) * 180 / Math.PI;
-    redraw();
-  } else if (draggingIcon) {
-    const rect = drawCanvas.getBoundingClientRect();
-    draggingIcon.x = (e.clientX - rect.left) / scale - offsetX;
-    draggingIcon.y = (e.clientY - rect.top) / scale - offsetY;
-    redraw();
-  }
-});
+    function draw() {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (backgroundImg && backgroundImg.complete) {
+        const x = (canvas.width - backgroundImg.width) / 2;
+        const y = (canvas.height - backgroundImg.height) / 2;
+        ctx.drawImage(backgroundImg, x, y);
+      }
 
-drawCanvas.addEventListener('mouseup', () => {
-  draggingIcon = null;
-  rotatingIcon = null;
-});
+      for (const icon of icons) {
+        const img = iconImages[icon.type];
+        if (!img.complete) continue;
 
-</script>
+        ctx.save();
+        ctx.translate(icon.x, icon.y);
+        ctx.rotate(icon.rotation);
+        ctx.drawImage(img, -icon.size/2, -icon.size/2, icon.size, icon.size);
+        ctx.restore();
+
+        if (icon === selected) drawHandles(icon);
+      }
+    }
+
+    canvas.onmousedown = (e) => {
+      const mx = e.offsetX;
+      const my = e.offsetY;
+      dragging = false;
+      dragMode = null;
+
+      for (let icon of [...icons].reverse()) {
+        const dx = mx - icon.x;
+        const dy = my - icon.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx) - icon.rotation;
+        const rx = Math.cos(angle) * dist;
+        const ry = Math.sin(angle) * dist;
+
+        const s = icon.size / 2;
+
+        if (Math.abs(rx) < s && Math.abs(ry) < s) {
+          selected = icon;
+          dragging = true;
+          dragMode = "move";
+          break;
+        }
+
+        // corners
+        if ((Math.abs(rx - s) < 8 && Math.abs(ry - s) < 8) ||
+            (Math.abs(rx + s) < 8 && Math.abs(ry + s) < 8) ||
+            (Math.abs(rx - s) < 8 && Math.abs(ry + s) < 8) ||
+            (Math.abs(rx + s) < 8 && Math.abs(ry - s) < 8)) {
+          selected = icon;
+          dragging = true;
+          dragMode = "resize";
+          break;
+        }
+
+        // rotate handle
+        if (Math.abs(rx) < 10 && Math.abs(ry - s - 20) < 10) {
+          selected = icon;
+          dragging = true;
+          dragMode = "rotate";
+          break;
+        }
+      }
+
+      startX = mx;
+      startY = my;
+    };
+
+    canvas.onmousemove = (e) => {
+      if (!dragging || !selected) return;
+
+      const dx = e.offsetX - startX;
+      const dy = e.offsetY - startY;
+
+      if (dragMode === "move") {
+        selected.x += dx;
+        selected.y += dy;
+      } else if (dragMode === "resize") {
+        selected.size = Math.max(10, selected.size + dx);
+      } else if (dragMode === "rotate") {
+        const angle1 = Math.atan2(startY - selected.y, startX - selected.x);
+        const angle2 = Math.atan2(e.offsetY - selected.y, e.offsetX - selected.x);
+        selected.rotation += angle2 - angle1;
+      }
+
+      startX = e.offsetX;
+      startY = e.offsetY;
+      draw();
+    };
+
+    canvas.onmouseup = () => {
+      dragging = false;
+      dragMode = null;
+    };
+
+    
+        let clipboard = null;
+        let history = [];
+
+        window.onkeydown = (e) => {
+          if (e.ctrlKey && e.key === 'c' && selected) {
+            clipboard = { ...selected };
+            return;
+          }
+
+          if (e.ctrlKey && e.key === 'v' && clipboard) {
+            const clone = { ...clipboard, x: clipboard.x + 20, y: clipboard.y + 20 };
+            icons.push(clone);
+            selected = clone;
+            draw();
+            return;
+          }
+
+          if (e.ctrlKey && e.key === 'z') {
+            if (history.length > 0) {
+              const previous = history.pop();
+              icons.length = 0;
+              icons.push(...previous);
+              selected = null;
+              draw();
+            }
+            return;
+          }
+
+          history.push(icons.map(i => ({ ...i })));  // snapshot before mutation
+        
+      if (e.key === 'Delete' && selected) {
+        history.push(icons.map(i => ({ ...i })));
+        icons.splice(icons.indexOf(selected), 1);
+        selected = null;
+        draw();
+      }
+    };
+
+    window.onload = () => draw();
+  </script>
 </body>
 </html>
