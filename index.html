@@ -1,252 +1,154 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Camera Editor - Interactive Handles</title>
-  <style>
-    html, body {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
-      overflow: hidden;
-      font-family: sans-serif;
-    }
-    #canvas {
-      background: #eee;
-      cursor: default;
-    }
-    #toolbar {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      background: white;
-      padding: 10px;
-      border: 1px solid #ccc;
-      z-index: 10;
-      display: flex;
-      flex-direction: row;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Массовая проверка ОВН v3</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#0a0f1e;color:#e2e8f0;min-height:100vh}
+.header{background:linear-gradient(135deg,#0f2040 0%,#0a0f1e 100%);padding:22px 40px;border-bottom:1px solid #1e3a6e;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.header-left h1{font-size:20px;font-weight:700;color:#60a5fa}.header-left p{font-size:12px;color:#64748b;margin-top:3px}
+.header-badge{background:#1e3a6e;color:#93c5fd;font-size:11px;padding:4px 12px;border-radius:20px;font-weight:600}
+.container{max-width:1300px;margin:0 auto;padding:28px 24px}
+.drop-zone{border:2px dashed #1e3a6e;border-radius:16px;padding:48px 24px;text-align:center;cursor:pointer;transition:.2s;position:relative;background:#0f1a2e;margin-bottom:20px}
+.drop-zone:hover,.drop-zone.dragover{border-color:#3b82f6;background:#0d1f3c}.drop-zone.has-files{border-color:#1d4ed8;border-style:solid}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-icon{font-size:48px;margin-bottom:12px}.drop-zone h2{font-size:16px;color:#cbd5e1;margin-bottom:6px}.drop-zone p{font-size:13px;color:#475569}.drop-zone .hint{font-size:12px;color:#334155;margin-top:10px}
+.file-list-wrap{margin-bottom:20px;display:none}.file-list-wrap.show{display:block}.file-list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap}
+.file-list-header h3{font-size:14px;color:#94a3b8;font-weight:500}.btn-clear{background:none;border:1px solid #334155;color:#64748b;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer}.btn-clear:hover{border-color:#ef4444;color:#f87171}
+.file-pills{display:flex;flex-wrap:wrap;gap:8px}.pill{background:#1e293b;border-radius:8px;padding:6px 12px;font-size:12px;display:flex;align-items:center;gap:8px;border:1px solid #334155;max-width:360px}
+.pill.paired{border-left:3px solid #22c55e}.pill.unpaired{border-left:3px solid #f59e0b;opacity:.7}.pill-icon{font-size:14px}.pill-name{color:#cbd5e1;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pill-id{color:#64748b;font-size:10px}
+.pairing-box{background:#0f1a2e;border:1px solid #1e3a6e;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:13px;display:none}.pairing-box.show{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.pair-stat{display:flex;align-items:center;gap:6px}.pair-dot{width:8px;height:8px;border-radius:50%}.pair-dot.green{background:#22c55e}.pair-dot.yellow{background:#f59e0b}
+.unpaired-section{background:#1c1200;border:1px solid #78350f;border-radius:10px;padding:14px 18px;margin-bottom:20px;display:none}.unpaired-section.show{display:block}
+.unpaired-section h4{color:#fbbf24;font-size:13px;margin-bottom:8px}.unpaired-list{display:flex;flex-wrap:wrap;gap:6px}.unpaired-pill{background:#2d1b00;border:1px solid #78350f;color:#fcd34d;font-size:12px;padding:3px 10px;border-radius:6px}
+.action-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}.btn-primary{flex:1;min-width:220px;padding:13px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:.2s}.btn-primary:hover:not(:disabled){background:linear-gradient(135deg,#3b82f6,#2563eb);transform:translateY(-1px)}.btn-primary:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-export{padding:13px 20px;background:#14532d;color:#4ade80;border:1px solid #166534;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:.2s;display:none;white-space:nowrap}.btn-export:hover{background:#166534}.btn-export.show{display:block}
+.progress-wrap{margin-bottom:20px;display:none}.progress-wrap.show{display:block}.progress-bar-outer{background:#1e293b;border-radius:6px;height:8px;overflow:hidden;margin-bottom:8px}.progress-bar-inner{height:100%;background:linear-gradient(90deg,#2563eb,#60a5fa);border-radius:6px;transition:width .3s}.progress-text{font-size:12px;color:#64748b;text-align:center}
+.toast{display:none;background:#7f1d1d;border:1px solid #dc2626;color:#fecaca;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:14px}
+.toast.show{display:block}
+.global-summary{display:none;margin-bottom:24px}.global-summary.show{display:block}.gs-top{display:flex;align-items:center;gap:20px;background:#0f1a2e;border-radius:12px;padding:20px 24px;margin-bottom:16px;border:1px solid #1e3a6e;flex-wrap:wrap}
+.gs-score{text-align:center}.gs-score .big{font-size:42px;font-weight:800;line-height:1}.big.green{color:#4ade80}.big.yellow{color:#fbbf24}.big.red{color:#f87171}.gs-score small{font-size:11px;color:#64748b;display:block;margin-top:2px}
+.gs-divider{width:1px;height:60px;background:#1e3a6e}.gs-stats{display:flex;gap:20px;flex:1;flex-wrap:wrap}.gs-stat{text-align:center}.gs-stat .n{font-size:26px;font-weight:700}.n.green{color:#4ade80}.n.red{color:#f87171}.n.yellow{color:#fbbf24}.n.blue{color:#60a5fa}.gs-stat .l{font-size:11px;color:#64748b}
+.filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}.filter-btn{padding:6px 16px;border-radius:20px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:13px;cursor:pointer;transition:.15s}.filter-btn:hover{border-color:#475569;color:#cbd5e1}.filter-btn.active{color:#fff;border-color:transparent}.filter-btn.active.all{background:#2563eb}.filter-btn.active.err{background:#dc2626}.filter-btn.active.warn{background:#d97706}.filter-btn.active.ok{background:#16a34a}
+.filter-count{background:#1e293b;border-radius:10px;padding:2px 7px;font-size:11px;margin-left:4px}.search-box{margin-left:auto;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 12px;color:#cbd5e1;font-size:13px;outline:none;width:260px;max-width:100%}.search-box:focus{border-color:#3b82f6}
+.results-table-wrap{overflow-x:auto;margin-bottom:24px}table.rtable{width:100%;border-collapse:collapse;font-size:13px}
+table.rtable th{background:#0f1a2e;padding:10px 14px;text-align:left;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #1e3a6e;white-space:nowrap}
+table.rtable td{padding:10px 14px;border-bottom:1px solid #0f172a;vertical-align:middle}table.rtable tr:hover td{background:#0d1a2e}
+table.rtable tr.row-err td{background:rgba(239,68,68,.04)}table.rtable tr.row-warn td{background:rgba(245,158,11,.04)}
+.obj-name{font-weight:600;color:#e2e8f0;font-size:13px}.obj-addr{font-size:11px;color:#64748b;margin-top:2px}
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap}.status-pill.ok{background:#14532d;color:#4ade80}.status-pill.err{background:#7f1d1d;color:#f87171}.status-pill.warn{background:#78350f;color:#fbbf24}
+.mc{width:18px;height:18px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}.mc.ok{background:#14532d;color:#4ade80}.mc.err{background:#7f1d1d;color:#f87171}.mc.warn{background:#78350f;color:#fbbf24}
+.detail-btn{background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer}.detail-btn:hover{border-color:#3b82f6;color:#60a5fa}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}.modal-overlay.open{display:flex}
+.modal{background:#0f172a;border:1px solid #1e3a6e;border-radius:16px;width:100%;max-width:760px;max-height:90vh;overflow-y:auto}
+.modal-header{padding:20px 24px;border-bottom:1px solid #1e3a6e;display:flex;justify-content:space-between;align-items:flex-start;position:sticky;top:0;background:#0f172a;z-index:1}.modal-header h2{font-size:16px;font-weight:700;color:#e2e8f0}.modal-header p{font-size:12px;color:#64748b;margin-top:2px}
+.modal-close{background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;padding:0 4px;line-height:1}.modal-close:hover{color:#f87171}.modal-body{padding:20px 24px}
+.m-section{margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid #1e293b}.m-section-hd{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#1e293b;cursor:pointer}.m-section-hd h4{font-size:13px;font-weight:600;flex:1}.m-section-hd .bdg{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600}
+.bdg.ok{background:#14532d;color:#4ade80}.bdg.err{background:#7f1d1d;color:#f87171}.bdg.warn{background:#78350f;color:#fbbf24}
+.m-section-body{padding:0 14px}.m-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #0f172a;font-size:12px}.m-item:last-child{border-bottom:none}
+.m-item.ok .lbl{color:#86efac}.m-item.err .lbl{color:#fca5a5}.m-item.warn .lbl{color:#fcd34d}.m-sub{margin-left:24px;font-size:11px;color:#64748b;padding:3px 0}
+</style>
 </head>
 <body>
-  <div id="toolbar">
-    <input type="file" accept="image/*" onchange="loadBackground(event)" />
-    <button onclick="addIcon('fix')">FIX</button>
-    <button onclick="addIcon('ptz')">PTZ</button>
-    <button onclick="addIcon('shield')">ЩИТ</button>
-    <button onclick="addIcon('pp')">ПП</button>
-    <button onclick="saveImage()">Сохранить как PNG</button>
-  </div>
-  <canvas id="canvas" width="1200" height="800"></canvas>
-  <script>
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-
-    const icons = [];
-    const iconImages = {};
-    const iconTypes = ["fix", "ptz", "shield", "pp"];
-    let backgroundImg = null;
-
-    let selected = null;
-    let dragging = false;
-    let dragMode = null;
-    let startX = 0, startY = 0;
-
-    iconTypes.forEach(type => {
-      const img = new Image();
-      img.src = type + ".png";
-      iconImages[type] = img;
-    });
-
-    function loadBackground(event) {
-      const file = event.target.files[0];
-      const reader = new FileReader();
-      reader.onload = e => {
-        backgroundImg = new Image();
-        backgroundImg.onload = draw;
-        backgroundImg.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
+<div class="header"><div class="header-left"><h1>🔍 Массовая проверка ОВН</h1><p>Drag & drop Актов и Паспортов — 3-источниковая сверка: Акт · Паспорт · Фото</p></div><span class="header-badge">Batch Verifier v3</span></div>
+<div class="container">
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div class="drop-zone" id="dropZone"><input type="file" id="fileInput" accept=".docx" multiple><div class="drop-icon">📂</div><h2>Перетащите файлы сюда или нажмите для выбора</h2><p>Загружайте Акты (<b>Акт_*.docx</b>) и Паспорта (<b>Паспорт_*.docx</b>) вместе</p><div class="hint">Пары определяются по ID вида <code>01VSPA2085</code></div></div>
+  <div class="file-list-wrap" id="fileListWrap"><div class="file-list-header"><h3 id="fileListTitle">Загруженные файлы</h3><button class="btn-clear" onclick="clearAll()">✕ Очистить</button></div><div class="file-pills" id="filePills"></div></div>
+  <div class="pairing-box" id="pairingBox"></div>
+  <div class="unpaired-section" id="unpairedSection"><h4>⚠️ Файлы без пары (будут пропущены)</h4><div class="unpaired-list" id="unpairedList"></div></div>
+  <div class="action-row"><button class="btn-primary" id="runBtn" disabled onclick="runAll()">▶ Запустить проверку</button><button class="btn-export" id="exportBtn" onclick="exportCSV()">⬇ Скачать CSV</button></div>
+  <div class="progress-wrap" id="progressWrap"><div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar" style="width:0%"></div></div><div class="progress-text" id="progressText">Обработка...</div></div>
+  <div class="global-summary" id="globalSummary"></div>
+  <div class="filter-bar" id="filterBar" style="display:none"><button class="filter-btn active all" onclick="setFilter('all',this)">Все <span class="filter-count" id="cnt-all">0</span></button><button class="filter-btn err" onclick="setFilter('err',this)">❌ Ошибки <span class="filter-count" id="cnt-err">0</span></button><button class="filter-btn warn" onclick="setFilter('warn',this)">⚠️ Предупреждения <span class="filter-count" id="cnt-warn">0</span></button><button class="filter-btn ok" onclick="setFilter('ok',this)">✅ Ок <span class="filter-count" id="cnt-ok">0</span></button><input class="search-box" id="searchBox" placeholder="🔎 Поиск по объекту / адресу..."></div>
+  <div class="results-table-wrap" id="tableWrap" style="display:none"><table class="rtable"><thead><tr><th>#</th><th>Объект / Адрес</th><th>Статус</th><th>FIX</th><th>PTZ</th><th>Шкаф</th><th>Mikrotik</th><th>Коммутатор</th><th>УБП</th><th>Фото</th><th>Ошибок</th><th>Предупр.</th><th></th></tr></thead><tbody id="rtableBody"></tbody></table></div>
+</div>
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)"><div class="modal" id="modal"><div class="modal-header"><div><h2 id="modalTitle">Детальный отчёт</h2><p id="modalSubtitle"></p></div><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body" id="modalBody"></div></div></div>
+<script>
+const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+let allFiles={},allResults=[],currentFilter='all',searchTimer;
+function toast(msg){$('toast').textContent=msg;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2400)}
+async function loadJSZip(){if(window.JSZip)return;await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';s.onload=res;s.onerror=()=>rej(new Error('Не удалось загрузить JSZip'));document.head.appendChild(s);});}
+async function extractDocx(file){await loadJSZip();const buf=await file.arrayBuffer(),zip=await JSZip.loadAsync(buf),docFile=zip.file('word/document.xml');if(!docFile)throw new Error('word/document.xml не найден');const xmlText=await docFile.async('text');const mediaFiles=Object.keys(zip.files).filter(f=>f.startsWith('word/media/')&&!f.endsWith('/'));const doc=new DOMParser().parseFromString(xmlText,'application/xml');const texts=[];doc.querySelectorAll('t').forEach(t=>texts.push(t.textContent));const tables=[];doc.querySelectorAll('tbl').forEach(tbl=>{const rows=[];tbl.querySelectorAll('tr').forEach(tr=>{const cells=[];tr.querySelectorAll('tc').forEach(tc=>{const ct=[];tc.querySelectorAll('t').forEach(t=>ct.push(t.textContent));cells.push(ct.join('').trim());});rows.push(cells);});tables.push(rows);});return {fullText:texts.join('\n'),tables,mediaFiles,xmlText};}
+const normalize=s=>(s||'')
+  .replace(/\s+/g,'')
+  .replace(/[–—]/g,'-')
+  .toUpperCase()
+  .replace(/[АВСЕНКМОРТХУ]/g,ch=>({А:'A',В:'B',С:'C',Е:'E',Н:'H',К:'K',М:'M',О:'O',Р:'P',Т:'T',Х:'X',У:'Y'}[ch]||ch))
+  .trim();
+const cmp=(a,b)=>normalize(a)===normalize(b);
+const blank=v=>{const n=normalize(v);return !n||n==='-'||n==='—'||n==='НЕТ'||n==='NONE'};
+const cmpField=(a,b)=>blank(a)&&blank(b)?true:(!blank(a)&&!blank(b)&&cmp(a,b));
+const extractObjId=name=>{const m=name.match(/(\d{2}[A-ZА-Я]{4}\d{4})/i);return m?m[1].toUpperCase().replace(/[АВСЕНКМОРТХ]/g,ch=>({А:'A',В:'B',С:'C',Е:'E',Н:'H',К:'K',М:'M',О:'O',Р:'P',Т:'T',Х:'X'}[ch]||ch)):null};
+function classifyFile(name){const n=name.toLowerCase();if(n.startsWith('акт')||n.includes('_акт')||n.startsWith('akt'))return 'akt';if(n.startsWith('паспорт')||n.includes('_паспорт')||n.startsWith('pasport')||n.startsWith('passport'))return 'passport';return null}
+function parseAct(data){const equipment=[];data.tables.forEach(tbl=>tbl.forEach((row,ri)=>{if(ri===0||row.length<5)return;const name=(row[1]||'').trim(),model=(row[2]||'').trim(),qty=parseInt((row[3]||'0').trim(),10)||0,serial=(row[4]||'').trim(),inv=(row[5]||'').trim();if(name)equipment.push({name,model,qty,serial,inv});}));return equipment}
+function parsePassport(data){const equipment=[];data.tables.forEach(tbl=>tbl.forEach((row,ri)=>{if(ri===0||row.length<4)return;const name=(row[1]||'').trim();if(!name||name.includes('Наименование'))return;equipment.push({name,model:(row[2]||'').trim(),serial:(row[3]||'').trim(),inv:(row[4]||'').trim(),ip:(row[5]||'').trim()});}));const addr=(data.fullText.match(/Адрес объекта[:\s]+([^\n]+)/i)||[])[1]?.trim().slice(0,120)||'';return {equipment,photoSections:parsePhotoSections(data),addr}}
+function parsePhotoSections(data){
+  const doc=new DOMParser().parseFromString(data.xmlText,'application/xml');
+  const mk=(required=2)=>({found:0,required,sn:'',inv:''});
+  const sections={shkaf:mk(4),ptz:mk(2),poe:mk(2),mikrotik:mk(2),ups:mk(2),fix:[]};
+  const extractMeta=txt=>{
+    const compact=txt.replace(/\s+/g,' ').trim();
+    const snLabel=(compact.match(/(?:сер\w*\s*номер|с\/н)\s*[:\-]?\s*([A-ZА-Я0-9\-_]+)/iu)||[])[1]||'';
+    const invLabel=(compact.match(/(?:инв\w*\s*номер|инв\.\s*№)\s*[:\-]?\s*([A-ZА-Я0-9\-_]+)/iu)||[])[1]||'';
+    let sn=snLabel;
+    let inv=invLabel;
+    if(!sn) sn=(compact.match(/\b([A-ZА-Я]+[0-9][A-ZА-Я0-9\-_]*)\b/u)||[])[1]||'';
+    if(!inv){
+      const nums=(compact.match(/\b\d{10,14}\b/g)||[]).filter(Boolean);
+      inv=nums.find(n=>!cmp(n,sn))||nums[0]||'';
     }
-
-    function addIcon(type) {
-      icons.push({ type, x: 600, y: 400, size: 50, rotation: 0 });
-      draw();
-    }
-
-    function saveImage() {
-      const link = document.createElement("a");
-      link.download = "scheme.png";
-      link.href = canvas.toDataURL();
-      link.click();
-    }
-
-    function drawHandles(icon) {
-      ctx.save();
-      ctx.translate(icon.x, icon.y);
-      ctx.rotate(icon.rotation);
-
-      const s = icon.size / 2;
-      const corners = [[-s, -s], [s, -s], [s, s], [-s, s]];
-      ctx.fillStyle = "white";
-      ctx.strokeStyle = "black";
-
-      for (let [x, y] of corners) {
-        ctx.fillRect(x - 4, y - 4, 8, 8);
-        ctx.strokeRect(x - 4, y - 4, 8, 8);
-      }
-
-      // Rotate handle
-      ctx.beginPath();
-      ctx.arc(0, s + 20, 6, 0, Math.PI * 2);
-      ctx.fillStyle = "orange";
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.restore();
-    }
-
-    function draw() {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (backgroundImg && backgroundImg.complete) {
-        const x = (canvas.width - backgroundImg.width) / 2;
-        const y = (canvas.height - backgroundImg.height) / 2;
-        ctx.drawImage(backgroundImg, x, y);
-      }
-
-      for (const icon of icons) {
-        const img = iconImages[icon.type];
-        if (!img.complete) continue;
-
-        ctx.save();
-        ctx.translate(icon.x, icon.y);
-        ctx.rotate(icon.rotation);
-        ctx.drawImage(img, -icon.size/2, -icon.size/2, icon.size, icon.size);
-        ctx.restore();
-
-        if (icon === selected) drawHandles(icon);
-      }
-    }
-
-    canvas.onmousedown = (e) => {
-      const mx = e.offsetX;
-      const my = e.offsetY;
-      dragging = false;
-      dragMode = null;
-
-      for (let icon of [...icons].reverse()) {
-        const dx = mx - icon.x;
-        const dy = my - icon.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const angle = Math.atan2(dy, dx) - icon.rotation;
-        const rx = Math.cos(angle) * dist;
-        const ry = Math.sin(angle) * dist;
-
-        const s = icon.size / 2;
-
-        if (Math.abs(rx) < s && Math.abs(ry) < s) {
-          selected = icon;
-          dragging = true;
-          dragMode = "move";
-          break;
-        }
-
-        // corners
-        if ((Math.abs(rx - s) < 8 && Math.abs(ry - s) < 8) ||
-            (Math.abs(rx + s) < 8 && Math.abs(ry + s) < 8) ||
-            (Math.abs(rx - s) < 8 && Math.abs(ry + s) < 8) ||
-            (Math.abs(rx + s) < 8 && Math.abs(ry - s) < 8)) {
-          selected = icon;
-          dragging = true;
-          dragMode = "resize";
-          break;
-        }
-
-        // rotate handle
-        if (Math.abs(rx) < 10 && Math.abs(ry - s - 20) < 10) {
-          selected = icon;
-          dragging = true;
-          dragMode = "rotate";
-          break;
-        }
-      }
-
-      startX = mx;
-      startY = my;
-    };
-
-    canvas.onmousemove = (e) => {
-      if (!dragging || !selected) return;
-
-      const dx = e.offsetX - startX;
-      const dy = e.offsetY - startY;
-
-      if (dragMode === "move") {
-        selected.x += dx;
-        selected.y += dy;
-      } else if (dragMode === "resize") {
-        selected.size = Math.max(10, selected.size + dx);
-      } else if (dragMode === "rotate") {
-        const angle1 = Math.atan2(startY - selected.y, startX - selected.x);
-        const angle2 = Math.atan2(e.offsetY - selected.y, e.offsetX - selected.x);
-        selected.rotation += angle2 - angle1;
-      }
-
-      startX = e.offsetX;
-      startY = e.offsetY;
-      draw();
-    };
-
-    canvas.onmouseup = () => {
-      dragging = false;
-      dragMode = null;
-    };
-
-    
-        let clipboard = null;
-        let history = [];
-
-        window.onkeydown = (e) => {
-          if (e.ctrlKey && e.key === 'c' && selected) {
-            clipboard = { ...selected };
-            return;
-          }
-
-          if (e.ctrlKey && e.key === 'v' && clipboard) {
-            const clone = { ...clipboard, x: clipboard.x + 20, y: clipboard.y + 20 };
-            icons.push(clone);
-            selected = clone;
-            draw();
-            return;
-          }
-
-          if (e.ctrlKey && e.key === 'z') {
-            if (history.length > 0) {
-              const previous = history.pop();
-              icons.length = 0;
-              icons.push(...previous);
-              selected = null;
-              draw();
-            }
-            return;
-          }
-
-          history.push(icons.map(i => ({ ...i })));  // snapshot before mutation
-        
-      if (e.key === 'Delete' && selected) {
-        history.push(icons.map(i => ({ ...i })));
-        icons.splice(icons.indexOf(selected), 1);
-        selected = null;
-        draw();
-      }
-    };
-
-    window.onload = () => draw();
-  </script>
+    return {sn,inv};
+  };
+  doc.querySelectorAll('tbl').forEach(tbl=>{
+    const txt=tbl.textContent.replace(/\s+/g,' ').trim();
+    const imgs=tbl.querySelectorAll('drawing').length;
+    if(!imgs) return;
+    const meta=extractMeta(txt);
+    if(/коммутационн\w*\s+шкаф/i.test(txt)) Object.assign(sections.shkaf,{found:imgs,sn:meta.sn||sections.shkaf.sn,inv:meta.inv||sections.shkaf.inv});
+    else if(/poe\s+коммутатор/i.test(txt)) Object.assign(sections.poe,{found:imgs,sn:meta.sn||sections.poe.sn,inv:meta.inv||sections.poe.inv});
+    else if(/ipsec\s+vpn/i.test(txt)) Object.assign(sections.mikrotik,{found:imgs,sn:meta.sn||sections.mikrotik.sn,inv:meta.inv||sections.mikrotik.inv});
+    else if(/поворотн\w*.*ptz|ptz/i.test(txt)) Object.assign(sections.ptz,{found:imgs,sn:meta.sn||sections.ptz.sn,inv:meta.inv||sections.ptz.inv});
+    else if(/бесперебойн\w*/i.test(txt)) Object.assign(sections.ups,{found:imgs,sn:meta.sn||sections.ups.sn,inv:meta.inv||sections.ups.inv});
+    else if(/fix/i.test(txt)) sections.fix.push({sn:meta.sn,inv:meta.inv,found:imgs,required:4});
+  });
+  return sections;
+}
+function checkPair(aktData,passportData){const aktEq=parseAct(aktData),{equipment:passEq,photoSections,addr}=parsePassport(passportData);const res={overall:{pass:0,fail:0,warn:0},sections:[],addr};const add=(sec,it)=>sec.items.push(it);
+const mk=(k,t,i)=>({key:k,title:t,icon:i,items:[],status:'ok'});
+const hasAny=(name,keys)=>{const n=(name||'').toLowerCase().replace(/\s+/g,' ');return keys.some(k=>n.includes(k));};
+const findOne=(arr,keys)=>arr.find(e=>hasAny(e.name,keys));
+const findAll=(arr,keys)=>arr.filter(e=>hasAny(e.name,keys));
+const fixSec=mk('fix','Камеры FIX','📹');const aktFix=findOne(aktEq,['fix','фикс']),passFix=findAll(passEq,['fix','фикс']);const aCount=aktFix?.qty||0;if(aCount===passFix.length&&aCount>0){add(fixSec,{status:'ok',label:`Кол-во: ${passFix.length} шт.`,subs:[]});res.overall.pass++;}else{add(fixSec,{status:'error',label:`Кол-во: Акт=${aCount}, Паспорт=${passFix.length}`,subs:[]});fixSec.status='error';res.overall.fail++;}
+const splitVals=v=>(v||'').split(/[\n,\\]+/).map(s=>s.trim()).filter(s=>s&&!blank(s));
+const aSn=splitVals(aktFix?.serial),aInv=splitVals(aktFix?.inv);
+passFix.forEach((c,i)=>{const snOk=aSn.some(s=>cmpField(s,c.serial)),invOk=aInv.some(s=>cmpField(s,c.inv));const pFix=(photoSections.fix||[]).find(p=>(p.sn&&cmpField(p.sn,c.serial))||(p.inv&&cmpField(p.inv,c.inv)))||{};const phSn=blank(pFix.sn)?null:cmpField(pFix.sn,c.serial),phInv=blank(pFix.inv)?null:cmpField(pFix.inv,c.inv),phCnt=(pFix.found||0)>=4;const ok=snOk&&invOk&&(phSn!==false)&&(phInv!==false)&&phCnt;add(fixSec,{status:ok?'ok':'error',label:`FIX(${i+1}): С/н ${c.serial||'—'} | Инв ${c.inv||'—'}`,subs:[{ok:snOk,text:`Акт С/н ${snOk?'✓':'✗'}`},{ok:invOk,text:`Акт Инв.№ ${invOk?'✓':'✗'}`},{ok:phSn!==false,text:`Фото С/н ${phSn===null?'?':phSn?'✓':'✗'}`},{ok:phInv!==false,text:`Фото Инв.№ ${phInv===null?'?':phInv?'✓':'✗'}`},{ok:phCnt,text:`Фото ${pFix.found||0}/4`} ]});if(ok)res.overall.pass++;else{res.overall.fail++;fixSec.status='error';}});res.sections.push(fixSec);
+const ptzSec=mk('ptz','Камеры PTZ','🎥');const aktP=findOne(aktEq,['ptz','поворот']),passP=findAll(passEq,['ptz','поворот']);const ptzCountOk=(aktP?.qty||0)===passP.length;if(ptzCountOk){add(ptzSec,{status:'ok',label:`PTZ: ${passP.length} шт.`,subs:[]});res.overall.pass++;}else{add(ptzSec,{status:'error',label:`PTZ: Акт=${aktP?.qty||0}, Паспорт=${passP.length}`,subs:[]});ptzSec.status='error';res.overall.fail++;}if(passP.length){const p=passP[0],photoP=photoSections.ptz||{};const sn=splitVals(aktP?.serial).some(s=>cmpField(s,p.serial));const inv=(blank(aktP?.inv)&&blank(p.inv))||splitVals(aktP?.inv).some(s=>cmpField(s,p.inv));const phSn=blank(photoP.sn)?null:cmpField(photoP.sn,p.serial),phInv=blank(photoP.inv)?null:cmpField(photoP.inv,p.inv),phCnt=(photoP.found||0)>=photoP.required;add(ptzSec,{status:sn?'ok':'error',label:'С/н Акт↔Паспорт',subs:[]});add(ptzSec,{status:inv?'ok':'error',label:'Инв Акт↔Паспорт',subs:[]});add(ptzSec,{status:phSn===null?'warn':(phSn?'ok':'error'),label:`С/н Фото↔Паспорт (${photoP.sn||'отсутствует'})`,subs:[]});add(ptzSec,{status:phInv===null?'warn':(phInv?'ok':'error'),label:`Инв Фото↔Паспорт (${photoP.inv||'отсутствует'})`,subs:[]});add(ptzSec,{status:phCnt?'ok':'error',label:'Фото PTZ',subs:[]});if(!(sn&&inv&&(phSn!==false)&&(phInv!==false)&&phCnt)){ptzSec.status='error';res.overall.fail++;}else if(phSn===null||phInv===null){ptzSec.status='warn';res.overall.warn++;}else res.overall.pass++;}res.sections.push(ptzSec);
+const dev=(ak,pk,photo,label,icon,key)=>{const sec=mk(key,label,icon);if(!ak||!pk){add(sec,{status:'error',label:'Не найден в одном из документов',subs:[]});sec.status='error';res.overall.fail++;}else{const sn=cmpField(ak.serial,pk.serial),inv=cmpField(ak.inv,pk.inv),phSn=blank(photo?.sn)?null:cmpField(photo.sn,pk.serial),phInv=blank(photo?.inv)?null:cmpField(photo.inv,pk.inv),phCnt=(photo?.found||0)>=(photo?.required||2);add(sec,{status:sn?'ok':'error',label:`С/н Акт↔Паспорт: ${ak.serial} / ${pk.serial}`,subs:[]});add(sec,{status:inv?'ok':'error',label:`Инв Акт↔Паспорт: ${ak.inv} / ${pk.inv}`,subs:[]});add(sec,{status:phSn===null?'warn':(phSn?'ok':'error'),label:`С/н Фото↔Паспорт: ${photo?.sn||'отсутствует'} / ${pk.serial}`,subs:[]});add(sec,{status:phInv===null?'warn':(phInv?'ok':'error'),label:`Инв Фото↔Паспорт: ${photo?.inv||'отсутствует'} / ${pk.inv}`,subs:[]});add(sec,{status:phCnt?'ok':'warn',label:`Фото: ${photo?.found||0}/${photo?.required||2}`,subs:[]});if(sn&&inv&&(phSn!==false)&&(phInv!==false)&&phCnt){if(phSn===null||phInv===null){res.overall.warn++;sec.status='warn';}else res.overall.pass++;}else{if(phCnt&&sn&&inv&&((phSn===null)||(phInv===null)))res.overall.warn++;else res.overall.fail++;if(sec.status==='ok')sec.status=(phCnt?'warn':'error');}}res.sections.push(sec)};
+dev(findOne(aktEq,['коммутационный шкаф','шкаф']),findOne(passEq,['коммутационный шкаф','шкаф']),photoSections.shkaf,'Коммутационный шкаф','🗄️','shkaf');
+dev(findOne(aktEq,['ipsec','vpn','маршрутизатор']),findOne(passEq,['ipsec','vpn','маршрутизатор']),photoSections.mikrotik,'Mikrotik (IPSEC VPN)','🔀','mikrotik');
+dev(findOne(aktEq,['poe коммутатор','poe']),findOne(passEq,['poe коммутатор','poe']),photoSections.poe,'PoE Коммутатор','🔌','poe');
+dev(findOne(aktEq,['бесперебой','упс','ups']),findOne(passEq,['бесперебой','упс','ups']),photoSections.ups,'УБП','🔋','ups');
+const photo=mk('photo','Фотоматериалы','📷');[{key:'shkaf',label:'Шкаф',req:4},{key:'ptz',label:'PTZ',req:2},{key:'poe',label:'PoE',req:2},{key:'mikrotik',label:'Mikrotik',req:2},{key:'ups',label:'УБП',req:2}].forEach(p=>{const f=photoSections[p.key]?.found||0,ok=f>=p.req,st=ok?'ok':(f>0?'warn':'error');add(photo,{status:st,label:`${p.label}: ${f}/${p.req} фото`,subs:[]});if(ok)res.overall.pass++;else if(f>0){res.overall.warn++;if(photo.status==='ok')photo.status='warn';}else{res.overall.fail++;photo.status='error';}});res.sections.push(photo);
+return res;}
+function handleFiles(fileList){let ignored=0,replaced=0;Array.from(fileList).forEach(f=>{if(!f.name.toLowerCase().endsWith('.docx')){ignored++;return;}const id=extractObjId(f.name),type=classifyFile(f.name);if(!id||!type){ignored++;return;}if(!allFiles[id])allFiles[id]={akt:null,passport:null,name:id};if(allFiles[id][type])replaced++;allFiles[id][type]=f;});if(ignored)toast(`Пропущено файлов: ${ignored} (не распознаны)`);if(replaced)toast(`Обновлено файлов: ${replaced}`);$('dropZone').classList.add('has-files');renderFileList()}
+function renderFileList(){const ids=Object.keys(allFiles);if(!ids.length){$('fileListWrap').classList.remove('show');$('pairingBox').classList.remove('show');$('unpairedSection').classList.remove('show');$('dropZone').classList.remove('has-files');return;}$('fileListWrap').classList.add('show');let paired=0,unpaired=[],html='';ids.forEach(id=>{const e=allFiles[id],both=e.akt&&e.passport;if(both)paired++;else unpaired.push(id);if(e.akt)html+=`<div class="pill ${both?'paired':'unpaired'}"><span class="pill-icon">📋</span><span class="pill-name">${esc(e.akt.name)}</span><span class="pill-id">${esc(id)}</span></div>`;if(e.passport)html+=`<div class="pill ${both?'paired':'unpaired'}"><span class="pill-icon">📁</span><span class="pill-name">${esc(e.passport.name)}</span><span class="pill-id">${esc(id)}</span></div>`;});$('filePills').innerHTML=html;$('fileListTitle').textContent=`Загруженные файлы (${ids.length} объектов)`;$('pairingBox').innerHTML=`<div class="pair-stat"><span class="pair-dot green"></span><b style="color:#4ade80">${paired}</b>&nbsp;спарено</div><div class="pair-stat"><span class="pair-dot yellow"></span><b style="color:#fbbf24">${unpaired.length}</b>&nbsp;без пары</div><div class="pair-stat"><span class="pair-dot" style="background:#60a5fa"></span><b style="color:#60a5fa">${ids.length}</b>&nbsp;всего объектов</div>`;$('pairingBox').classList.add('show');if(unpaired.length){$('unpairedList').innerHTML=unpaired.map(id=>`<span class="unpaired-pill">${esc(id)}</span>`).join('');$('unpairedSection').classList.add('show');}else $('unpairedSection').classList.remove('show');$('runBtn').disabled=paired===0}
+function clearAll(){allFiles={};allResults=[];$('filePills').innerHTML='';$('fileInput').value='';['fileListWrap','pairingBox','unpairedSection','globalSummary'].forEach(id=>$(id).classList.remove('show'));$('filterBar').style.display='none';$('tableWrap').style.display='none';$('exportBtn').classList.remove('show');$('runBtn').disabled=true;$('dropZone').classList.remove('has-files');$('searchBox').value='';}
+async function runAll(){const pairs=Object.entries(allFiles).filter(([,e])=>e.akt&&e.passport);if(!pairs.length)return;allResults=[];$('progressWrap').classList.add('show');$('globalSummary').classList.remove('show');$('filterBar').style.display='none';$('tableWrap').style.display='none';$('runBtn').disabled=true;for(let i=0;i<pairs.length;i++){const [id,e]=pairs[i];$('progressBar').style.width=`${Math.round(((i+.5)/pairs.length)*100)}%`;$('progressText').textContent=`Обрабатывается: ${id} (${i+1}/${pairs.length})`;try{const [a,p]=await Promise.all([extractDocx(e.akt),extractDocx(e.passport)]);const result=checkPair(a,p);allResults.push({id,name:id,addr:result.addr,result});}catch(err){allResults.push({id,name:id,addr:'',result:{overall:{pass:0,fail:1,warn:0},sections:[],parseError:err.message}})}}$('progressBar').style.width='100%';$('progressText').textContent=`Готово: ${pairs.length} объектов проверено`;setTimeout(()=>$('progressWrap').classList.remove('show'),1200);renderSummary();renderTable();$('runBtn').disabled=false;$('exportBtn').classList.add('show')}
+const rowStatus=r=>r.result.overall.fail>0?'err':(r.result.overall.warn>0?'warn':'ok');
+function renderSummary(){const total=allResults.length,err=allResults.filter(r=>rowStatus(r)==='err').length,warn=allResults.filter(r=>rowStatus(r)==='warn').length,ok=allResults.filter(r=>rowStatus(r)==='ok').length,score=total?Math.round(ok/total*100):0,cls=score>=90?'green':score>=70?'yellow':'red';$('globalSummary').innerHTML=`<div class="gs-top"><div class="gs-score"><div class="big ${cls}">${score}%</div><small>объектов OK</small></div><div class="gs-divider"></div><div class="gs-stats"><div class="gs-stat"><div class="n blue">${total}</div><div class="l">Всего объектов</div></div><div class="gs-stat"><div class="n green">${ok}</div><div class="l">Без ошибок</div></div><div class="gs-stat"><div class="n red">${err}</div><div class="l">С ошибками</div></div><div class="gs-stat"><div class="n yellow">${warn}</div><div class="l">Предупреждения</div></div></div></div>`;$('globalSummary').classList.add('show');$('cnt-all').textContent=total;$('cnt-err').textContent=err;$('cnt-warn').textContent=warn;$('cnt-ok').textContent=ok;$('filterBar').style.display='flex'}
+const secStatus=(result,key)=>(result.sections||[]).find(s=>s.key===key)?.status||'warn';
+function renderTable(){$('tableWrap').style.display='block';applyFilter()}
+function applyFilter(){const search=($('searchBox').value||'').toLowerCase();let html='';allResults.forEach((r,idx)=>{const st=rowStatus(r);if(currentFilter!=='all'&&st!==currentFilter)return;if(search&&!`${r.name} ${r.addr||''}`.toLowerCase().includes(search))return;const ov=r.result.overall;const pill=st==='err'?'<span class="status-pill err">❌ Ошибки</span>':st==='warn'?'<span class="status-pill warn">⚠️ Предупреждения</span>':'<span class="status-pill ok">✅ OK</span>';const mc=k=>{const s=secStatus(r.result,k),i=s==='ok'?'✓':s==='error'?'✗':'!',c=s==='ok'?'ok':s==='error'?'err':'warn';return `<span class="mc ${c}">${i}</span>`};html+=`<tr class="row-${st}"><td style="color:#475569;font-size:12px">${idx+1}</td><td><div class="obj-name">${esc(r.name)}</div><div class="obj-addr">${esc(r.addr||'—')}</div></td><td>${pill}</td><td>${mc('fix')}</td><td>${mc('ptz')}</td><td>${mc('shkaf')}</td><td>${mc('mikrotik')}</td><td>${mc('poe')}</td><td>${mc('ups')}</td><td>${mc('photo')}</td><td><span style="color:#f87171;font-weight:700">${ov.fail}</span></td><td><span style="color:#fbbf24;font-weight:700">${ov.warn}</span></td><td><button class="detail-btn" onclick="openModal(${idx})">Детали →</button></td></tr>`});$('rtableBody').innerHTML=html||'<tr><td colspan="13" style="text-align:center;color:#475569;padding:32px">Нет объектов по выбранному фильтру</td></tr>'}
+function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');applyFilter()}
+function openModal(idx){const r=allResults[idx];$('modalTitle').textContent=r.name;$('modalSubtitle').textContent=r.addr||'';if(r.result.parseError){$('modalBody').innerHTML=`<div style="color:#f87171;padding:20px">Ошибка обработки: ${esc(r.result.parseError)}</div>`;$('modalOverlay').classList.add('open');return;}const ov=r.result.overall,total=ov.pass+ov.fail+ov.warn,score=total?Math.round((ov.pass/total)*100):0,color=score>=90?'#4ade80':score>=70?'#fbbf24':'#f87171';let html=`<div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap"><div style="background:#0a0f1e;border-radius:8px;padding:12px 20px;text-align:center"><div style="font-size:32px;font-weight:800;color:${color}">${score}%</div><div style="font-size:11px;color:#64748b">оценка</div></div></div>`;r.result.sections.forEach(sec=>{const err=sec.items.filter(i=>i.status==='error').length,warn=sec.items.filter(i=>i.status==='warn').length,bc=err?'err':warn?'warn':'ok',bt=err?`${err} ошибок`:warn?`${warn} предупр.`:'OK';html+=`<div class="m-section"><div class="m-section-hd" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"><span>${sec.icon}</span><h4>${esc(sec.title)}</h4><span class="bdg ${bc}">${bt}</span></div><div class="m-section-body" style="display:${sec.status!=='ok'?'block':'none'}">`;sec.items.forEach(item=>{const i=item.status==='ok'?'✅':item.status==='error'?'❌':'⚠️';html+=`<div class="m-item ${item.status}"><span>${i}</span><div class="lbl">${esc(item.label)}</div></div>`;(item.subs||[]).forEach(s=>html+=`<div class="m-sub">${s.ok?'✓':'✗'} ${esc(s.text)}</div>`)});html+='</div></div>';});$('modalBody').innerHTML=html;$('modalOverlay').classList.add('open')}
+function closeModal(e){if(!e||e.target===$('modalOverlay'))$('modalOverlay').classList.remove('open')}
+function exportCSV(){const rows=[['ID объекта','Адрес','Статус','Ошибок','Предупреждений','FIX','PTZ','Шкаф','Mikrotik','PoE','УБП','Фото']];allResults.forEach(r=>{const st=rowStatus(r),ov=r.result.overall,s=k=>{const sec=(r.result.sections||[]).find(x=>x.key===k);return !sec?'—':sec.status==='ok'?'OK':sec.status==='error'?'ОШИБКА':'ПРЕДУПРЕЖДЕНИЕ'};rows.push([r.name,r.addr,st==='err'?'ОШИБКА':st==='warn'?'ПРЕДУПРЕЖДЕНИЕ':'OK',ov.fail,ov.warn,s('fix'),s('ptz'),s('shkaf'),s('mikrotik'),s('poe'),s('ups'),s('photo')])});const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`ovn_check_${new Date().toISOString().slice(0,10)}.csv`;a.click()}
+$('fileInput').addEventListener('change',e=>handleFiles(e.target.files));$('dropZone').addEventListener('dragover',e=>{e.preventDefault();$('dropZone').classList.add('dragover')});$('dropZone').addEventListener('dragleave',()=>$('dropZone').classList.remove('dragover'));$('dropZone').addEventListener('drop',e=>{e.preventDefault();$('dropZone').classList.remove('dragover');handleFiles(e.dataTransfer.files)});
+$('searchBox').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(applyFilter,120)});
+$('modal').addEventListener('click',e=>e.stopPropagation());window.addEventListener('keydown',e=>{if(e.key==='Escape')$('modalOverlay').classList.remove('open')});
+</script>
 </body>
 </html>
