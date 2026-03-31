@@ -72,7 +72,13 @@ let allFiles={},allResults=[],currentFilter='all',searchTimer;
 function toast(msg){$('toast').textContent=msg;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2400)}
 async function loadJSZip(){if(window.JSZip)return;await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';s.onload=res;s.onerror=()=>rej(new Error('Не удалось загрузить JSZip'));document.head.appendChild(s);});}
 async function extractDocx(file){await loadJSZip();const buf=await file.arrayBuffer(),zip=await JSZip.loadAsync(buf),docFile=zip.file('word/document.xml');if(!docFile)throw new Error('word/document.xml не найден');const xmlText=await docFile.async('text');const mediaFiles=Object.keys(zip.files).filter(f=>f.startsWith('word/media/')&&!f.endsWith('/'));const doc=new DOMParser().parseFromString(xmlText,'application/xml');const texts=[];doc.querySelectorAll('t').forEach(t=>texts.push(t.textContent));const tables=[];doc.querySelectorAll('tbl').forEach(tbl=>{const rows=[];tbl.querySelectorAll('tr').forEach(tr=>{const cells=[];tr.querySelectorAll('tc').forEach(tc=>{const ct=[];tc.querySelectorAll('t').forEach(t=>ct.push(t.textContent));cells.push(ct.join('').trim());});rows.push(cells);});tables.push(rows);});return {fullText:texts.join('\n'),tables,mediaFiles,xmlText};}
-const normalize=s=>(s||'').replace(/\s+/g,'').replace(/[–—]/g,'-').toUpperCase().trim();const cmp=(a,b)=>normalize(a)===normalize(b);
+const normalize=s=>(s||'')
+  .replace(/\s+/g,'')
+  .replace(/[–—]/g,'-')
+  .toUpperCase()
+  .replace(/[АВСЕНКМОРТХУ]/g,ch=>({А:'A',В:'B',С:'C',Е:'E',Н:'H',К:'K',М:'M',О:'O',Р:'P',Т:'T',Х:'X',У:'Y'}[ch]||ch))
+  .trim();
+const cmp=(a,b)=>normalize(a)===normalize(b);
 const blank=v=>{const n=normalize(v);return !n||n==='-'||n==='—'||n==='НЕТ'||n==='NONE'};
 const cmpField=(a,b)=>blank(a)&&blank(b)?true:(!blank(a)&&!blank(b)&&cmp(a,b));
 const extractObjId=name=>{const m=name.match(/(\d{2}[A-ZА-Я]{4}\d{4})/i);return m?m[1].toUpperCase().replace(/[АВСЕНКМОРТХ]/g,ch=>({А:'A',В:'B',С:'C',Е:'E',Н:'H',К:'K',М:'M',О:'O',Р:'P',Т:'T',Х:'X'}[ch]||ch)):null};
@@ -83,10 +89,19 @@ function parsePhotoSections(data){
   const doc=new DOMParser().parseFromString(data.xmlText,'application/xml');
   const mk=(required=2)=>({found:0,required,sn:'',inv:''});
   const sections={shkaf:mk(4),ptz:mk(2),poe:mk(2),mikrotik:mk(2),ups:mk(2),fix:[]};
-  const extractMeta=txt=>({
-    sn:(txt.match(/(?:серийн\w*\s*номер|с\/н)[:\s]*([A-Z0-9\-_]+)/iu)||txt.match(/(A422-[0-9A-Z-]+)/i)||[])[1]||'',
-    inv:(txt.match(/инвентар\w*\s*номер[:\s]*([0-9A-Z\-_]+)/iu)||txt.match(/\b(\d{10,14})\b/)||[])[1]||''
-  });
+  const extractMeta=txt=>{
+    const compact=txt.replace(/\s+/g,' ').trim();
+    const snLabel=(compact.match(/(?:сер\w*\s*номер|с\/н)\s*[:\-]?\s*([A-ZА-Я0-9\-_]+)/iu)||[])[1]||'';
+    const invLabel=(compact.match(/(?:инв\w*\s*номер|инв\.\s*№)\s*[:\-]?\s*([A-ZА-Я0-9\-_]+)/iu)||[])[1]||'';
+    let sn=snLabel;
+    let inv=invLabel;
+    if(!sn) sn=(compact.match(/\b([A-ZА-Я]+[0-9][A-ZА-Я0-9\-_]*)\b/u)||[])[1]||'';
+    if(!inv){
+      const nums=(compact.match(/\b\d{10,14}\b/g)||[]).filter(Boolean);
+      inv=nums.find(n=>!cmp(n,sn))||nums[0]||'';
+    }
+    return {sn,inv};
+  };
   doc.querySelectorAll('tbl').forEach(tbl=>{
     const txt=tbl.textContent.replace(/\s+/g,' ').trim();
     const imgs=tbl.querySelectorAll('drawing').length;
